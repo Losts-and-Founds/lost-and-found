@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,8 +20,15 @@ import 'package:lost_and_found/utils/utility.dart';
 
 class InsertItemScreen extends StatefulWidget {
   final bool isNewItemLost;
+  final String? draftId;
+  final Map<String, dynamic>? draftData;
 
-  const InsertItemScreen({super.key, this.isNewItemLost = true});
+  const InsertItemScreen({
+    super.key,
+    this.isNewItemLost = true,
+    this.draftId,
+    this.draftData,
+  });
 
   @override
   State<InsertItemScreen> createState() => _InsertItemScreenState();
@@ -30,10 +39,14 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _questionController = TextEditingController();
+  final TextEditingController _electronicsIdentifierController =
+      TextEditingController();
 
   String _selectedCategoryName = "Wallets & Purses";
   int _selectedCategoryId = 1;
+  String _selectedElectronicsDeviceType = "phone";
   String _locationDisplay = "Select a location";
+  String? _draftId;
 
   final List<Map<String, dynamic>> _categories = const [
     {"id": 1, "name": "Wallets & Purses", "icon": Icons.wallet_rounded},
@@ -50,9 +63,59 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _draftId = widget.draftId;
+    final draft = widget.draftData;
+    if (draft == null) return;
+
+    _titleController.text = draft['title'] as String? ?? '';
+    _questionController.text = draft['question'] as String? ?? '';
+    _electronicsIdentifierController.text =
+        draft['electronicsIdentifier'] as String? ?? '';
+    _selectedCategoryId = _readInt(draft['categoryId']) ?? 1;
+    _selectedCategoryName =
+        draft['category'] as String? ?? _categoryName(_selectedCategoryId);
+    _selectedElectronicsDeviceType =
+        draft['electronicsDeviceType'] as String? ?? 'phone';
+    final location = draft['location'] as Map<String, dynamic>?;
+    final locationLabel = location?['label'] as String? ?? '';
+    if (locationLabel.isNotEmpty && !_isCoordinateLabel(locationLabel)) {
+      _locationDisplay = locationLabel;
+    }
+  }
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
+  }
+
+  double? _readDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  bool _isCoordinateLabel(String value) {
+    final parts = value.split(',');
+    return parts.length == 2 &&
+        double.tryParse(parts[0].trim()) != null &&
+        double.tryParse(parts[1].trim()) != null;
+  }
+
+  String _categoryName(int id) {
+    for (final category in _categories) {
+      if (category['id'] == id) return category['name'] as String;
+    }
+    return 'Other Valuables';
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _questionController.dispose();
+    _electronicsIdentifierController.dispose();
     super.dispose();
   }
 
@@ -210,8 +273,55 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
     );
   }
 
-  void _onSaveDraft() {
-    showBasicSuccessSnackbar(context, "Draft saved successfully.");
+  Future<void> _onSaveDraft(InsertItemState state) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      showBasicInfoSnackbar(context, "Sign in to save a draft.");
+      return;
+    }
+
+    try {
+      final position = state.pos.value.getOrElse(() => const LatLng(0, 0));
+      final drafts = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('drafts');
+      final draftReference =
+          _draftId == null ? drafts.doc() : drafts.doc(_draftId);
+      await draftReference.set({
+        'title': _titleController.text.trim(),
+        'status': state.type.name,
+        'categoryId': _selectedCategoryId,
+        'category': _selectedCategoryName,
+        'question': _questionController.text.trim(),
+        'electronicsDeviceType':
+            _selectedCategoryId == 2 ? _selectedElectronicsDeviceType : null,
+        'electronicsIdentifier': _selectedCategoryId == 2
+            ? _electronicsIdentifierController.text.trim()
+            : null,
+        'imagePath': state.imagePath,
+        'location': {
+          'label': state.address.isNotEmpty
+              ? state.address
+              : _locationDisplay == 'Select a location' ||
+                      _isCoordinateLabel(_locationDisplay)
+                  ? ''
+                  : _locationDisplay,
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        },
+        'savedAt': FieldValue.serverTimestamp(),
+      });
+      _draftId = draftReference.id;
+      if (mounted) {
+        showBasicSuccessSnackbar(context, "Draft saved to Drafts.");
+      }
+    } on FirebaseException catch (error) {
+      debugPrint('Could not save item draft: $error');
+      if (mounted) {
+        showBasicInfoSnackbar(context, "Could not save the draft. Try again.");
+      }
+    }
   }
 
   void _onClose() {
@@ -247,24 +357,79 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
 
     return BlocBuilder<AppGlobalBloc, AppGlobalState>(
       builder: (appGlobalCtx, appGlobalState) => BlocProvider<InsertItemBloc>(
-        create: (_) => sl<InsertItemBloc>()
-          ..add(InsertItemEvent.contentCreated(widget.isNewItemLost)),
+        create: (_) {
+          final draft = widget.draftData;
+          final isDraftLost =
+              draft == null ? widget.isNewItemLost : draft['status'] != 'found';
+          final bloc = sl<InsertItemBloc>()
+            ..add(InsertItemEvent.contentCreated(isDraftLost));
+          if (draft != null) {
+            bloc.add(
+                InsertItemEvent.titleChanged(draft['title'] as String? ?? ''));
+            bloc.add(InsertItemEvent.questionChanged(
+                draft['question'] as String? ?? ''));
+            bloc.add(InsertItemEvent.categorySelected(
+              _selectedCategoryId,
+              _selectedCategoryName,
+            ));
+
+            final location = draft['location'] as Map<String, dynamic>?;
+            final latitude = _readDouble(location?['latitude']);
+            final longitude = _readDouble(location?['longitude']);
+            if (latitude != null &&
+                longitude != null &&
+                (latitude != 0 || longitude != 0)) {
+              bloc.add(InsertItemEvent.positionSelected(
+                LatLng(latitude, longitude),
+              ));
+            }
+
+            final imagePath = draft['imagePath'] as String?;
+            if (imagePath != null && File(imagePath).existsSync()) {
+              bloc.add(InsertItemEvent.imageSelected(imagePath));
+            }
+          }
+          return bloc;
+        },
         child: BlocConsumer<InsertItemBloc, InsertItemState>(
-          listener: (ctx, state) {
+          listener: (ctx, state) async {
             final insertFailureOrSuccess = state.insertFailureOrSuccess;
             if (insertFailureOrSuccess != null) {
               insertFailureOrSuccess.fold(
                 (failure) => showBasicErrorSnackbar(context, failure),
-                (_) {
+                (_) async {
+                  var draftCleanupSucceeded = true;
+                  if (_draftId != null) {
+                    final userId = FirebaseAuth.instance.currentUser?.uid;
+                    if (userId != null) {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userId)
+                            .collection('drafts')
+                            .doc(_draftId)
+                            .delete();
+                      } on FirebaseException catch (error) {
+                        debugPrint(
+                            'Report published but draft cleanup failed: $error');
+                        draftCleanupSucceeded = false;
+                      }
+                    }
+                  }
+                  if (!ctx.mounted) return;
                   showBasicSuccessSnackbar(
-                      context, "Report published successfully!");
+                    ctx,
+                    draftCleanupSucceeded
+                        ? "Report published successfully!"
+                        : "Report published, but the draft could not be removed.",
+                  );
                   ctx
                       .read<HomeBloc>()
                       .add(HomeEvent.homeSectionRefreshed(state.type));
                   ctx
                       .read<HomeControllerBloc>()
                       .add(const HomeControllerEvent.tabChanged(0));
-                  Navigator.of(context).pop();
+                  Navigator.of(ctx).pop();
                 },
               );
             }
@@ -324,7 +489,7 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
 
                         // "Save draft" action button
                         TextButton(
-                          onPressed: _onSaveDraft,
+                          onPressed: () => _onSaveDraft(state),
                           style: TextButton.styleFrom(
                             foregroundColor: mintColor,
                             padding: const EdgeInsets.symmetric(
@@ -436,6 +601,87 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
                             ),
                           ),
                         ),
+                        if (_selectedCategoryId == 2) ...[
+                          const SizedBox(height: 20),
+                          Text(
+                            "ELECTRONIC DEVICE",
+                            style: AppTypography.uppercaseLabel(context,
+                                fontSize: 11),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedElectronicsDeviceType,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: containerFill,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.input),
+                                borderSide: BorderSide(color: borderColor),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.input),
+                                borderSide: BorderSide(color: borderColor),
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: "phone", child: Text("Phone")),
+                              DropdownMenuItem(
+                                  value: "laptop", child: Text("Laptop")),
+                            ],
+                            onChanged: (deviceType) {
+                              if (deviceType != null) {
+                                setState(() {
+                                  _selectedElectronicsDeviceType = deviceType;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            _selectedElectronicsDeviceType == "phone"
+                                ? "IMEI"
+                                : "SSID NUMBER",
+                            style: AppTypography.uppercaseLabel(context,
+                                fontSize: 11),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: containerFill,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.input),
+                              border:
+                                  Border.all(color: borderColor, width: 1.2),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 2),
+                            child: TextFormField(
+                              controller: _electronicsIdentifierController,
+                              keyboardType:
+                                  _selectedElectronicsDeviceType == "phone"
+                                      ? TextInputType.number
+                                      : TextInputType.text,
+                              textCapitalization: TextCapitalization.characters,
+                              style:
+                                  AppTypography.sansBody(context, fontSize: 16),
+                              decoration: InputDecoration(
+                                hintText:
+                                    _selectedElectronicsDeviceType == "phone"
+                                        ? "Enter the phone's IMEI"
+                                        : "Enter the laptop's SSID number",
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 20),
 
                         // 5. LOCATION: Interactive picker container showing map tile preview, location text, radius, and chevron arrow
@@ -461,8 +707,7 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
                               ctx.read<InsertItemBloc>().add(
                                   InsertItemEvent.positionSelected(result));
                               setState(() {
-                                _locationDisplay =
-                                    "Selected GPS Location (${result.latitude.toStringAsFixed(4)}, ${result.longitude.toStringAsFixed(4)})";
+                                _locationDisplay = 'Selected location';
                               });
                             }
                           },
@@ -508,7 +753,9 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _locationDisplay,
+                                        state.address.isNotEmpty
+                                            ? state.address
+                                            : _locationDisplay,
                                         style: AppTypography.sansBold(context,
                                             fontSize: 14, color: textPrimary),
                                         maxLines: 1,
@@ -760,6 +1007,15 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
                                   "Category", _selectedCategoryName, context),
                               _buildReviewRow(Icons.location_on_outlined,
                                   "Location", _locationDisplay, context),
+                              if (_selectedCategoryId == 2)
+                                _buildReviewRow(
+                                  Icons.devices_rounded,
+                                  _selectedElectronicsDeviceType == "phone"
+                                      ? "IMEI"
+                                      : "SSID Number",
+                                  _electronicsIdentifierController.text,
+                                  context,
+                                ),
                               if (_questionController.text.isNotEmpty)
                                 _buildReviewRow(
                                     Icons.security_rounded,
@@ -800,9 +1056,39 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
                                 onPressed: state.isSubmitting
                                     ? null
                                     : () {
-                                        ctx.read<InsertItemBloc>().add(
-                                            const InsertItemEvent
-                                                .insertSubmitted());
+                                        if (_selectedCategoryId == 2 &&
+                                            _electronicsIdentifierController
+                                                .text
+                                                .trim()
+                                                .isEmpty) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                _selectedElectronicsDeviceType ==
+                                                        "phone"
+                                                    ? "Please enter the phone's IMEI"
+                                                    : "Please enter the laptop's SSID number",
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        ctx.read<InsertItemBloc>().submit(
+                                              electronicsDeviceType:
+                                                  _selectedCategoryId == 2
+                                                      ? _selectedElectronicsDeviceType
+                                                      : null,
+                                              electronicsIdentifier:
+                                                  _selectedCategoryId == 2
+                                                      ? _electronicsIdentifierController
+                                                          .text
+                                                      : null,
+                                              locationLabel: _locationDisplay ==
+                                                      'Select a location'
+                                                  ? null
+                                                  : _locationDisplay,
+                                            );
                                       },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: mintColor,
@@ -1085,6 +1371,12 @@ class _InsertItemScreenState extends State<InsertItemScreen> {
 
 class InsertItemScreenArguments {
   final bool isNewItemLost;
+  final String? draftId;
+  final Map<String, dynamic>? draftData;
 
-  const InsertItemScreenArguments({required this.isNewItemLost});
+  const InsertItemScreenArguments({
+    required this.isNewItemLost,
+    this.draftId,
+    this.draftData,
+  });
 }

@@ -23,19 +23,23 @@ class _RegistrationFormState extends State<RegistrationForm> {
     if (password.length >= 8) strength++;
     if (password.contains(RegExp(r'[0-9]'))) strength++;
     if (password.contains(RegExp(r'[A-Z]'))) strength++;
-    if (password.contains(RegExp(r'[@$!%*?&#]')) || password.length >= 12) strength++;
+    if (password.contains(RegExp(r'[@$!%*?&#]')) || password.length >= 12)
+      strength++;
     return strength;
   }
 
   void _showTermsDialog(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
+    final customColors =
+        Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
     final mintColor = customColors.primaryAccent ?? const Color(0xFF52C46A);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: customColors.cardFill ?? Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        backgroundColor:
+            customColors.cardFill ?? Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.card)),
         title: Text(
           "Terms and Privacy Policy",
           style: AppTypography.serifHeading(context, fontSize: 20),
@@ -50,7 +54,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
                 "1. Mutual Trust & Integrity: Lost&Found is dedicated to safely reuniting individuals with misplaced property. Fraudulent claims or harassment are strictly prohibited.\n\n"
                 "2. Privacy: We only share your public contact username and optional city radius to verify items. Your sensitive data is encrypted.\n\n"
                 "3. Safety First: When reuniting with neighbours, always arrange meetings in well-lit public places and verify item details before completing handovers.",
-                style: AppTypography.sansBody(context, fontSize: 13, height: 1.5),
+                style:
+                    AppTypography.sansBody(context, fontSize: 13, height: 1.5),
               ),
             ],
           ),
@@ -70,9 +75,11 @@ class _RegistrationFormState extends State<RegistrationForm> {
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
+    final customColors =
+        Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
     final mintColor = customColors.primaryAccent ?? const Color(0xFF52C46A);
-    final secondaryTextColor = customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
+    final secondaryTextColor =
+        customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
     final containerFill = customColors.cardFill ?? const Color(0xFF131A2B);
     final borderColor = customColors.cardBorderColor ?? const Color(0xFF1F2B45);
     final urgentColor = customColors.urgentAccent ?? const Color(0xFFA61C32);
@@ -86,8 +93,10 @@ class _RegistrationFormState extends State<RegistrationForm> {
           regFailureOrSuccess.fold(
             (failure) => showBasicErrorSnackbar(context, failure),
             (_) {
-              showBasicSuccessSnackbar(context, "Account created successfully! Please sign in.");
-              Navigator.pushReplacementNamed(ctx, '/login');
+              Navigator.of(ctx).pushNamedAndRemoveUntil(
+                '/verify-email',
+                (route) => false,
+              );
             },
           );
         }
@@ -154,11 +163,14 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     filled: false,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: (val) => ctx.read<RegistrationBloc>().add(RegistrationEvent.usernameFieldChanged(val)),
+                  onChanged: (val) => ctx
+                      .read<RegistrationBloc>()
+                      .add(RegistrationEvent.usernameFieldChanged(val)),
                 ),
-                errorText: state.showErrorMessage && state.username.value.isLeft()
-                    ? "Please enter a valid username"
-                    : null,
+                errorText:
+                    state.showErrorMessage && state.username.value.isLeft()
+                        ? "Please enter a valid username"
+                        : null,
               ),
               const SizedBox(height: 18),
 
@@ -180,7 +192,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     filled: false,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: (val) => ctx.read<RegistrationBloc>().add(RegistrationEvent.emailFieldChanged(val)),
+                  onChanged: (val) => ctx
+                      .read<RegistrationBloc>()
+                      .add(RegistrationEvent.emailFieldChanged(val)),
                 ),
                 errorText: state.showErrorMessage && state.email.value.isLeft()
                     ? "Please enter a valid email address"
@@ -197,11 +211,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
                 borderColor: borderColor,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    state.obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    state.obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     size: 20,
                     color: secondaryTextColor,
                   ),
-                  onPressed: () => ctx.read<RegistrationBloc>().add(const RegistrationEvent.obscurePasswordToggled()),
+                  onPressed: () => ctx
+                      .read<RegistrationBloc>()
+                      .add(const RegistrationEvent.obscurePasswordToggled()),
                 ),
                 child: TextFormField(
                   obscureText: state.obscurePassword,
@@ -218,12 +236,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     setState(() {
                       _currentPassword = val;
                     });
-                    ctx.read<RegistrationBloc>().add(RegistrationEvent.passwordFieldChanged(val));
+                    ctx
+                        .read<RegistrationBloc>()
+                        .add(RegistrationEvent.passwordFieldChanged(val));
                   },
                 ),
-                errorText: state.showErrorMessage && state.password.value.isLeft()
-                    ? "Password must be at least 8 chars with 1 number"
-                    : null,
+                errorText:
+                    state.showErrorMessage && state.password.value.isLeft()
+                        ? "Password must be at least 8 chars with 1 number"
+                        : null,
               ),
 
               // Password Strength Bar: Multi-segment bar below password field
@@ -240,11 +261,14 @@ class _RegistrationFormState extends State<RegistrationForm> {
                 borderColor: borderColor,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    state.obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    state.obscureConfirmPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     size: 20,
                     color: secondaryTextColor,
                   ),
-                  onPressed: () => ctx.read<RegistrationBloc>().add(const RegistrationEvent.obscureConfirmPasswordToggled()),
+                  onPressed: () => ctx.read<RegistrationBloc>().add(
+                      const RegistrationEvent.obscureConfirmPasswordToggled()),
                 ),
                 child: TextFormField(
                   obscureText: state.obscureConfirmPassword,
@@ -257,9 +281,12 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     filled: false,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: (val) => ctx.read<RegistrationBloc>().add(RegistrationEvent.confirmPasswordFieldChanged(val)),
+                  onChanged: (val) => ctx
+                      .read<RegistrationBloc>()
+                      .add(RegistrationEvent.confirmPasswordFieldChanged(val)),
                 ),
-                errorText: state.showErrorMessage && state.confirmPassword.value.isLeft()
+                errorText: state.showErrorMessage &&
+                        state.confirmPassword.value.isLeft()
                     ? "Passwords must match"
                     : null,
               ),
@@ -273,7 +300,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
                   child: RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
-                      style: AppTypography.sansSecondary(context, fontSize: 13, height: 1.4),
+                      style: AppTypography.sansSecondary(context,
+                          fontSize: 13, height: 1.4),
                       children: [
                         const TextSpan(text: "By continuing you agree to our "),
                         TextSpan(
@@ -298,27 +326,32 @@ class _RegistrationFormState extends State<RegistrationForm> {
                 child: ElevatedButton(
                   onPressed: state.isSubmitting
                       ? null
-                      : () => ctx.read<RegistrationBloc>().add(const RegistrationEvent.registrationSubmitted()),
+                      : () => ctx
+                          .read<RegistrationBloc>()
+                          .add(const RegistrationEvent.registrationSubmitted()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: mintColor,
-                    foregroundColor: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF0B101D)
-                        : Colors.white,
+                    foregroundColor:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF0B101D)
+                            : Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.button),
                     ),
                   ),
                   child: state.isSubmitting
-                      ? const CustomCircularProgress(size: 22, color: Colors.white)
+                      ? const CustomCircularProgress(
+                          size: 22, color: Colors.white)
                       : Text(
                           "Create account",
                           style: AppTypography.sansBold(
                             context,
                             fontSize: 16,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFF0B101D)
-                                : Colors.white,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF0B101D)
+                                    : Colors.white,
                           ),
                         ),
                 ),
@@ -334,7 +367,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     style: AppTypography.sansSecondary(context, fontSize: 14),
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.of(context).pushReplacementNamed('/login'),
+                    onTap: () =>
+                        Navigator.of(context).pushReplacementNamed('/login'),
                     child: Text(
                       "Sign in",
                       style: AppTypography.sansBold(
@@ -391,7 +425,10 @@ class _RegistrationFormState extends State<RegistrationForm> {
               Icon(
                 icon,
                 size: 20,
-                color: Theme.of(context).extension<CustomColors>()?.secondaryTextColor ?? const Color(0xFF8F99A8),
+                color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.secondaryTextColor ??
+                    const Color(0xFF8F99A8),
               ),
               const SizedBox(width: 12),
               Expanded(child: child),
@@ -412,9 +449,11 @@ class _RegistrationFormState extends State<RegistrationForm> {
   }
 
   Widget _buildPasswordStrengthBar(BuildContext context, int strength) {
-    final customColors = Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
+    final customColors =
+        Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
     final mintColor = customColors.primaryAccent ?? const Color(0xFF52C46A);
-    final secondaryTextColor = customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
+    final secondaryTextColor =
+        customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
 
     Color getBarColor(int index) {
       if (index >= strength) return secondaryTextColor.withOpacity(0.2);
@@ -465,7 +504,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     ? secondaryTextColor
                     : (strength <= 1
                         ? const Color(0xFFA61C32)
-                        : (strength <= 3 ? const Color(0xFFE67E22) : mintColor)),
+                        : (strength <= 3
+                            ? const Color(0xFFE67E22)
+                            : mintColor)),
               ),
             ),
           ],

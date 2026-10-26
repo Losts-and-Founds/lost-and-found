@@ -31,6 +31,9 @@ class InsertItemBloc extends Bloc<InsertItemEvent, InsertItemState> {
   final UploadItemImageUseCase _uploadItemImageUseCase;
   final GetAddressFromPositionUseCase _getAddressFromPositionUseCase;
   final SecureStorage _storage;
+  String? _pendingElectronicsDeviceType;
+  String? _pendingElectronicsIdentifier;
+  String? _pendingLocationLabel;
 
   InsertItemBloc({
     required CreateItemUseCase createItemUseCase,
@@ -105,35 +108,69 @@ class InsertItemBloc extends Bloc<InsertItemEvent, InsertItemState> {
     emit(state.copyWith(question: QuestionField(input)));
   }
 
+  void submit({
+    String? electronicsDeviceType,
+    String? electronicsIdentifier,
+    String? locationLabel,
+  }) {
+    _pendingElectronicsDeviceType = electronicsDeviceType;
+    _pendingElectronicsIdentifier = electronicsIdentifier;
+    _pendingLocationLabel = locationLabel;
+    add(const InsertItemEvent.insertSubmitted());
+  }
+
   Future<void> _onInsertSubmitted(Emitter<InsertItemState> emit) async {
+    final electronicsDeviceType = _pendingElectronicsDeviceType;
+    final electronicsIdentifier = _pendingElectronicsIdentifier;
+    final locationLabel = _pendingLocationLabel;
+    _pendingElectronicsDeviceType = null;
+    _pendingElectronicsIdentifier = null;
+    _pendingLocationLabel = null;
+
     emit(state.copyWith(isSubmitting: true));
 
     final isItemLostValid = state.title.value.isRight();
     final isItemFoundValid =
         state.title.value.isRight() && state.question.value.isRight();
     final isCategoryValid = state.cat.value.isRight();
-    final isPositionValid = state.pos.value.isRight();
 
     Either<Failure, Success>? createFailureOrSuccess;
     Either<Failure, Success>? imageFailureOrSuccess;
     int? newItemId;
+    final requiresElectronicsIdentifier =
+        state.cat.value.getOrElse(() => -1) == 2;
+    final hasValidElectronicsIdentifier = !requiresElectronicsIdentifier ||
+        (electronicsDeviceType != null &&
+            (electronicsDeviceType == 'phone' ||
+                electronicsDeviceType == 'laptop') &&
+            (electronicsIdentifier?.trim().isNotEmpty ?? false));
 
     if ((isItemLostValid || isItemFoundValid) &&
         isCategoryValid &&
-        isPositionValid) {
+        hasValidElectronicsIdentifier) {
       emit(state.copyWith(isLoading: true, insertFailureOrSuccess: null));
 
+      final hasPosition = state.pos.value.isRight();
       final pos = state.pos.value.getOrElse(() => const LatLng(0, 0));
 
       final params = CreateItemParams(
-          category: state.cat.value.getOrElse(() => 0),
-          title: state.title.value.getOrElse(() => ""),
-          question: state.type == ItemType.found
-              ? state.question.value.getOrElse(() => "")
-              : null,
-          type: state.type,
-          position: Position(X: pos.latitude, Y: pos.longitude),
-          locationLabel: state.address.isEmpty ? null : state.address);
+        category: state.cat.value.getOrElse(() => 0),
+        title: state.title.value.getOrElse(() => ""),
+        question: state.type == ItemType.found
+            ? state.question.value.getOrElse(() => "")
+            : null,
+        type: state.type,
+        position: Position(X: pos.latitude, Y: pos.longitude),
+        locationLabel: hasPosition && state.address.isNotEmpty
+            ? state.address
+            : (locationLabel?.isNotEmpty ?? false)
+                ? locationLabel
+                : null,
+        electronicsDeviceType:
+            requiresElectronicsIdentifier ? electronicsDeviceType : null,
+        electronicsIdentifier:
+            requiresElectronicsIdentifier ? electronicsIdentifier : null,
+      );
 
       final insertResponse = await _createItemUseCase(params);
       insertResponse.fold((failure) => createFailureOrSuccess = Left(failure),
@@ -155,6 +192,8 @@ class InsertItemBloc extends Bloc<InsertItemEvent, InsertItemState> {
           _storage.saveLastPickingOperation(ImagePick.nothing.name);
         }
       }
+    } else if (!hasValidElectronicsIdentifier) {
+      createFailureOrSuccess = const Left(Failure.validationFailure());
     }
 
     emit(
@@ -179,11 +218,22 @@ class InsertItemBloc extends Bloc<InsertItemEvent, InsertItemState> {
 
     addressOrFailure.fold(
         (failure) => emit(state.copyWith(
+              address: 'Nsukka, Enugu State',
+              pos: PositionField(pos),
               isLoadingPosition: false,
             )),
         (address) => emit(state.copyWith(
-            address: address,
+            address: _looksLikeCoordinates(address)
+                ? 'Nsukka, Enugu State'
+                : address,
             pos: PositionField(pos),
             isLoadingPosition: false)));
+  }
+
+  bool _looksLikeCoordinates(String value) {
+    final parts = value.split(',');
+    return parts.length == 2 &&
+        double.tryParse(parts[0].trim()) != null &&
+        double.tryParse(parts[1].trim()) != null;
   }
 }

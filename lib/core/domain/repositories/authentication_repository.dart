@@ -9,5 +9,6 @@ import '../../../features/authentication/domain/usecases/registration_usecase.da
 abstract class AuthenticationRepository {
   Future<Either<Failure, Success>> register(RegistrationParams params);
   Future<Either<Failure, Success>> login(LoginParams? params);
+  Future<Either<Failure, Success>> loginCurrentUser();
   Future<Either<Failure, Success>> logout(NoParams params);
 }

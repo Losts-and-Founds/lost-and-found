@@ -26,6 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<String> _filterPills = const ["All", "Lost", "Found"];
 
   @override
+  void initState() {
+    super.initState();
+    context.read<HomeBloc>().add(const HomeEvent.homeCreated());
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/core/domain/usecases/usecase.dart';
 import 'package:lost_and_found/core/presentation/widgets/brand_logo.dart';
@@ -20,7 +21,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
   Timer? _navigationTimer;
@@ -47,6 +49,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _hasNavigated = true;
 
     try {
+      var firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        await firebaseUser.reload();
+        firebaseUser = FirebaseAuth.instance.currentUser;
+        if (!mounted) return;
+
+        if (firebaseUser != null && !firebaseUser.emailVerified) {
+          Navigator.of(context).pushReplacementNamed('/verify-email');
+          return;
+        }
+
+        if (firebaseUser?.emailVerified == true) {
+          Navigator.of(context).pushReplacementNamed('/');
+          return;
+        }
+      }
+
       final response = await sl<LoginUseCase>()(null);
       if (!mounted) return;
       if (response.isRight()) {
@@ -72,10 +91,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
+    final customColors =
+        Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
     final mintColor = customColors.primaryAccent ?? const Color(0xFF52C46A);
-    final secondaryTextColor = customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
+    final secondaryTextColor =
+        customColors.secondaryTextColor ?? const Color(0xFF8F99A8);
 
     return Scaffold(
       backgroundColor: backgroundColor,

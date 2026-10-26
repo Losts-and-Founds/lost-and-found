@@ -14,6 +14,8 @@ CreateItemParams _$CreateItemParamsFromJson(Map<String, dynamic> json) =>
       category: json['category'] as int,
       question: json['question'] as String?,
       locationLabel: json['locationLabel'] as String?,
+      electronicsDeviceType: json['electronicsDeviceType'] as String?,
+      electronicsIdentifier: json['electronicsIdentifier'] as String?,
     );
 
 Map<String, dynamic> _$CreateItemParamsToJson(CreateItemParams instance) {
@@ -32,6 +34,8 @@ Map<String, dynamic> _$CreateItemParamsToJson(CreateItemParams instance) {
 
   writeNotNull('question', instance.question);
   writeNotNull('locationLabel', instance.locationLabel);
+  writeNotNull('electronicsDeviceType', instance.electronicsDeviceType);
+  writeNotNull('electronicsIdentifier', instance.electronicsIdentifier);
   return val;
 }
 

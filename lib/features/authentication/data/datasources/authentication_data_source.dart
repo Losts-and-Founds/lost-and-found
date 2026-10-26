@@ -16,9 +16,61 @@ abstract class AuthenticationDataSource {
 
   // Login the user with the given credentials
   Future<SessionModel> login(LoginParams params);
+
+  Future<SessionModel> loginCurrentUser();
 }
 
 class AuthenticationDataSourceImpl extends AuthenticationDataSource {
+  @override
+  Future<SessionModel> loginCurrentUser() async {
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw RecordNotFoundException();
+    }
+
+    await user.reload();
+    user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw RecordNotFoundException();
+    }
+    if (!user.emailVerified) {
+      throw UserNotAuthorizedException();
+    }
+
+    final email = user.email;
+    if (email == null || email.isEmpty) {
+      throw UserNotAuthorizedException();
+    }
+
+    final userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final userData = userSnapshot.data() ?? const <String, dynamic>{};
+    final username = userData['username'] as String? ??
+        user.displayName ??
+        email.split('@').first;
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'uid': user.uid,
+      'username': username,
+      'usernameLower': username.toLowerCase(),
+      'email': email,
+      'firstName': username,
+      'emailVerified': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return SessionModel(
+      token: await user.getIdToken() ?? user.uid,
+      user: user.uid.hashCode.abs(),
+      expire:
+          DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch,
+      username: username,
+      email: email,
+    );
+  }
+
   @override
   Future<void> register(RegistrationParams params) async {
     try {
@@ -42,7 +94,8 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
       }
 
       // 2. Create the user in Firebase Authentication
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: params.email,
         password: params.password,
       );
@@ -50,6 +103,7 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
       final user = userCredential.user;
       if (user != null) {
         await user.updateDisplayName(params.username);
+        await user.sendEmailVerification();
 
         // 3. Create user in Firebase Chat Core first
         try {
@@ -72,6 +126,7 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
           'email': params.email,
           'firstName': params.username,
           'lastName': '',
+          'emailVerified': false,
           'fcmToken': params.token,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -129,7 +184,8 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
 
         if (query.docs.isEmpty) {
           // Fallback scan across all users
-          final allUsers = await FirebaseFirestore.instance.collection('users').get();
+          final allUsers =
+              await FirebaseFirestore.instance.collection('users').get();
           for (final doc in allUsers.docs) {
             final data = doc.data();
             final u = (data['username'] as String?)?.toLowerCase();
@@ -151,18 +207,28 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
       }
 
       // Sign in with Firebase Authentication
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: params.password,
       );
 
       final user = userCredential.user!;
+
+      if (!user.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        throw UserNotAuthorizedException();
+      }
+
       final token = await user.getIdToken() ?? user.uid;
 
       // Ensure username is retrieved properly
       if (username.contains('@')) {
         try {
-          final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
           if (doc.exists && doc.data() != null) {
             final data = doc.data()!;
             username = (data['username'] as String?) ??
@@ -186,13 +252,15 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
           'email': user.email ?? email,
           'firstName': username,
           'lastName': '',
+          'emailVerified': user.emailVerified,
           if (params.token != null) 'fcmToken': params.token,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {}
 
       // Calculate session expiration (30 days from now in ms)
-      final expire = DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch;
+      final expire =
+          DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch;
 
       return SessionModel(
         token: token,
@@ -213,6 +281,8 @@ class AuthenticationDataSourceImpl extends AuthenticationDataSource {
         throw UserNotAuthorizedException();
       }
     } on RecordNotFoundException {
+      rethrow;
+    } on UserNotAuthorizedException {
       rethrow;
     } catch (e) {
       log("Error during login: $e");

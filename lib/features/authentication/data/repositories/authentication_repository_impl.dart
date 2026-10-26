@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lost_and_found/core/network/network_info.dart';
 
 import 'package:lost_and_found/core/status/exceptions.dart';
@@ -32,13 +33,14 @@ class AuthenticationRepositoryImpl implements AuthenticationRepository {
   @override
   Future<Either<Failure, Success>> login(LoginParams? params) async {
     try {
-      if (await _storage.hasValidSession()) {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (await _storage.hasValidSession() &&
+          firebaseUser != null &&
+          firebaseUser.emailVerified) {
         return const Right(Success.genericSuccess());
       }
 
       if (await _networkInfo.isConnected) {
-        final hasCredentials = await _storage.hasCredentials();
-
         if (params == null && await _storage.hasCredentials()) {
           params = await _storage.getCredentials();
         } else if (params == null) {
@@ -47,7 +49,8 @@ class AuthenticationRepositoryImpl implements AuthenticationRepository {
 
         final session = await _dataSource.login(params);
         await _storage.saveSessionInformation(session);
-        await _storage.saveCredentialsForChatLogin(session.email, session.username);
+        await _storage.saveCredentialsForChatLogin(
+            session.email, session.username);
         await _storage.saveLoginInformation(params);
 
         return const Right(Success.genericSuccess());
@@ -56,6 +59,19 @@ class AuthenticationRepositoryImpl implements AuthenticationRepository {
       }
     } on Exception catch (e) {
       return Left(mapExceptionToFailure(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Success>> loginCurrentUser() async {
+    try {
+      final session = await _dataSource.loginCurrentUser();
+      await _storage.saveSessionInformation(session);
+      await _storage.saveCredentialsForChatLogin(
+          session.email, session.username);
+      return const Right(Success.genericSuccess());
+    } on Exception catch (error) {
+      return Left(mapExceptionToFailure(error));
     }
   }
 

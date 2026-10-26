@@ -45,7 +45,8 @@ class _Application extends State<App> {
 
   Future<void> setupInteractedMessage() async {
     // Get any messages which caused the application to open from a terminated state.
-    RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
 
     if (initialMessage != null) {
       _handleMessage(initialMessage);
@@ -60,17 +61,22 @@ class _Application extends State<App> {
         ? NotificationType.item
         : (message.data['topic'] == 'newClaim'
             ? NotificationType.newClaim
-            : (message.data['topic'] == 'sentClaim' ? NotificationType.sentClaim : NotificationType.chat));
+            : (message.data['topic'] == 'sentClaim'
+                ? NotificationType.sentClaim
+                : NotificationType.chat));
 
     switch (topic) {
       case NotificationType.item:
-        _handleItemMessage(int.parse(message.data['news']), int.parse(message.data['item']));
+        _handleItemMessage(
+            int.parse(message.data['news']), int.parse(message.data['item']));
       case NotificationType.newClaim:
-        _handleNewClaimMessage(int.parse(message.data['claim']), int.parse(message.data['item']));
+        _handleNewClaimMessage(
+            int.parse(message.data['claim']), int.parse(message.data['item']));
       case NotificationType.sentClaim:
         _handleSentClaimUpdateMessage(int.parse(message.data['item']));
       case NotificationType.chat:
-        _handleChatMessage(int.parse(message.data["item"]), message.data["room"]);
+        _handleChatMessage(
+            int.parse(message.data["item"]), message.data["room"]);
     }
   }
 
@@ -87,7 +93,8 @@ class _Application extends State<App> {
   }
 
   void _handleNewClaimMessage(int claimId, int itemId) {
-    navigatorKey.currentState?.pushNamed('/claims', arguments: ClaimsScreenArguments(claimId: claimId, tab: null));
+    navigatorKey.currentState?.pushNamed('/claims',
+        arguments: ClaimsScreenArguments(claimId: claimId, tab: null));
     navigatorKey.currentState?.push(
       MaterialPageRoute(
         builder: (_) => AnswerClaimScreen(
@@ -100,7 +107,8 @@ class _Application extends State<App> {
   }
 
   void _handleSentClaimUpdateMessage(int itemId) {
-    navigatorKey.currentState?.pushNamed('/claims', arguments: const ClaimsScreenArguments(claimId: null, tab: 0));
+    navigatorKey.currentState?.pushNamed('/claims',
+        arguments: const ClaimsScreenArguments(claimId: null, tab: 0));
     navigatorKey.currentState?.push(
       MaterialPageRoute(
         builder: (_) => ItemScreen(itemId: itemId),
@@ -114,7 +122,9 @@ class _Application extends State<App> {
         builder: (_) => ChatScreen(itemId: itemId, roomId: roomId),
       ),
     );
-    navigatorKey.currentContext?.read<HomeControllerBloc>().add(const HomeControllerEvent.tabChanged(3));
+    navigatorKey.currentContext
+        ?.read<HomeControllerBloc>()
+        .add(const HomeControllerEvent.tabChanged(3));
   }
 
   @override
@@ -133,29 +143,33 @@ class _Application extends State<App> {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AppGlobalBloc>(create: (_) => sl<AppGlobalBloc>()..add(const AppGlobalEvent.appCreated())),
+        BlocProvider<AppGlobalBloc>(
+            create: (_) =>
+                sl<AppGlobalBloc>()..add(const AppGlobalEvent.appCreated())),
         BlocProvider<HomeBloc>(create: (_) => sl<HomeBloc>()),
         BlocProvider<SearchBloc>(create: (_) => sl<SearchBloc>()),
         BlocProvider<UserBloc>(create: (_) => sl<UserBloc>()),
-        BlocProvider<HomeControllerBloc>(create: (_) => sl<HomeControllerBloc>()),
+        BlocProvider<HomeControllerBloc>(
+            create: (_) => sl<HomeControllerBloc>()),
         BlocProvider<BadgeBloc>(create: (_) => sl<BadgeBloc>()),
         BlocProvider<InboxBloc>(create: (_) => sl<InboxBloc>())
       ],
       child: Sizer(
         builder: (context, orientation, deviceType) {
           if (initialRoute == "/") {
-            context.read<HomeBloc>().add(const HomeEvent.homeCreated());
             context.read<BadgeBloc>().add(const BadgeEvent.badgeCreated());
           }
 
           return BlocBuilder<AppGlobalBloc, AppGlobalState>(
-            builder: (ctx, state) => DynamicColorBuilder(builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+            builder: (ctx, state) => DynamicColorBuilder(
+                builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 localizationsDelegates: AppLocalizations.localizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 locale: state.locale,
-                builder: (!kReleaseMode && kIsWeb) ? DevicePreview.appBuilder : null,
+                builder:
+                    (!kReleaseMode && kIsWeb) ? DevicePreview.appBuilder : null,
                 title: 'Lost and Found',
                 navigatorKey: navigatorKey,
                 themeMode: state.theme,
@@ -164,11 +178,17 @@ class _Application extends State<App> {
                 initialRoute: initialRoute,
                 onGenerateInitialRoutes: (route) {
                   if (route == '/splash') {
-                    return [MaterialPageRoute(builder: (_) => const SplashScreen())];
+                    return [
+                      MaterialPageRoute(builder: (_) => const SplashScreen())
+                    ];
                   } else if (route == '/') {
-                    return [MaterialPageRoute(builder: (_) => HomeControllerScreen())];
+                    return [
+                      MaterialPageRoute(builder: (_) => HomeControllerScreen())
+                    ];
                   } else {
-                    return [MaterialPageRoute(builder: (_) => const InfoScreen())];
+                    return [
+                      MaterialPageRoute(builder: (_) => const InfoScreen())
+                    ];
                   }
                 },
                 onGenerateRoute: RouteGenerator.generateRoute,

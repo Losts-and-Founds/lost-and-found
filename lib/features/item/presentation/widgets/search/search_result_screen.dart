@@ -34,7 +34,10 @@ class SearchResultScreen extends StatelessWidget {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       shape: const StadiumBorder(),
                     ),
-                    onPressed: () => Navigator.push(ctx, MaterialPageRoute(builder: (_) => const FiltersScreen())),
+                    onPressed: () => Navigator.push(
+                        ctx,
+                        MaterialPageRoute(
+                            builder: (_) => const FiltersScreen())),
                     child: Row(
                       children: [
                         Icon(
@@ -47,7 +50,9 @@ class SearchResultScreen extends StatelessWidget {
                         ),
                         Text(
                           AppLocalizations.of(context)!.filters,
-                          style: TextStyle(fontSize: 20, color: Theme.of(context).colorScheme.onPrimary),
+                          style: TextStyle(
+                              fontSize: 20,
+                              color: Theme.of(context).colorScheme.onPrimary),
                         ),
                       ],
                     ),
@@ -57,7 +62,8 @@ class SearchResultScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(0, 0, 12, 0),
                     child: TextButton(
-                      onPressed: () => onOrderMenuButtonClick(context, state.order),
+                      onPressed: () =>
+                          onOrderMenuButtonClick(context, state.order),
                       child: Row(
                         children: [
                           const Icon(Icons.list),
@@ -72,7 +78,10 @@ class SearchResultScreen extends StatelessWidget {
                                 Text(
                                   state.order.getTranslatedName(context),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -92,7 +101,9 @@ class SearchResultScreen extends StatelessWidget {
           state.hasSearchError
               ? ErrorPage(
                   hasBottomBar: true,
-                  onRetry: () => ctx.read<SearchBloc>().add(const SearchEvent.searchSubmitted(false)),
+                  onRetry: () => ctx
+                      .read<SearchBloc>()
+                      .add(const SearchEvent.searchSubmitted(false)),
                 )
               : (state.isLoadingResults
                   ? const CustomCircularProgress(size: 100)
@@ -108,7 +119,10 @@ class SearchResultScreen extends StatelessWidget {
                                     owner: item.user.username,
                                     token: state.token,
                                     date: item.date,
-                                    distance: item.distance,
+                                    distance: state.pos.value.fold(
+                                      (_) => null,
+                                      (_) => item.distance,
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -117,8 +131,10 @@ class SearchResultScreen extends StatelessWidget {
                       : NoContentPage(
                           hasBottomBar: true,
                           image: "assets/images/no-search-result.png",
-                          title: AppLocalizations.of(context)!.noContentSearchResultTitle,
-                          subtitle: AppLocalizations.of(context)!.noContentSearchResultSubtitle,
+                          title: AppLocalizations.of(context)!
+                              .noContentSearchResultTitle,
+                          subtitle: AppLocalizations.of(context)!
+                              .noContentSearchResultSubtitle,
                         )),
         ],
       ),
@@ -138,26 +154,31 @@ class SearchResultScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   AppLocalizations.of(context)!.selectSortingDialogTitle,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const Divider(
                 height: 0,
               ),
               ModalSheetOptionButton(
-                text: ResultOrder.alphabeticAscending.getTranslatedName(context),
+                text:
+                    ResultOrder.alphabeticAscending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.alphabeticAscending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.alphabeticAscending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.alphabeticAscending)),
               ),
               const Divider(
                 height: 0,
               ),
               ModalSheetOptionButton(
-                text: ResultOrder.alphabeticDescending.getTranslatedName(context),
+                text:
+                    ResultOrder.alphabeticDescending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.alphabeticDescending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.alphabeticDescending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.alphabeticDescending)),
               ),
               const Divider(
                 height: 0,
@@ -165,8 +186,9 @@ class SearchResultScreen extends StatelessWidget {
               ModalSheetOptionButton(
                 text: ResultOrder.dateAscending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.dateAscending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.dateAscending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.dateAscending)),
               ),
               const Divider(
                 height: 0,
@@ -174,8 +196,9 @@ class SearchResultScreen extends StatelessWidget {
               ModalSheetOptionButton(
                 text: ResultOrder.dateDescending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.dateDescending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.dateDescending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.dateDescending)),
               ),
               const Divider(
                 height: 0,
@@ -183,8 +206,9 @@ class SearchResultScreen extends StatelessWidget {
               ModalSheetOptionButton(
                 text: ResultOrder.distanceAscending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.distanceAscending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.distanceAscending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.distanceAscending)),
               ),
               const Divider(
                 height: 0,
@@ -192,8 +216,9 @@ class SearchResultScreen extends StatelessWidget {
               ModalSheetOptionButton(
                 text: ResultOrder.distanceDescending.getTranslatedName(context),
                 isSelected: selectedOrder == ResultOrder.distanceDescending,
-                onClick: () =>
-                    ctx.read<SearchBloc>().add(const SearchEvent.sortParameterChanged(ResultOrder.distanceDescending)),
+                onClick: () => ctx.read<SearchBloc>().add(
+                    const SearchEvent.sortParameterChanged(
+                        ResultOrder.distanceDescending)),
               ),
               const SizedBox(
                 height: 5,

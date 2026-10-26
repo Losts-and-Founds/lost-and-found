@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -112,7 +113,17 @@ class ItemScreen extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onBackground),
               actions: state.isLoading || state.hasLoadingError
                   ? null
-                  : _showOwnerMenu(ctx, isCurrentUserOwner!),
+                  : isCurrentUserOwner!
+                      ? _showOwnerMenu(ctx, true)
+                      : currentUid == null
+                          ? null
+                          : [
+                              _buildSaveItemAction(
+                                ctx,
+                                state.item!,
+                                currentUid,
+                              ),
+                            ],
             ),
             body: SafeArea(
               child: state.hasLoadingError
@@ -180,6 +191,61 @@ class ItemScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildSaveItemAction(
+    BuildContext context,
+    Item item,
+    String userId,
+  ) {
+    final savedItemRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('savedItems')
+        .doc(item.id.toString());
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: savedItemRef.snapshots(),
+      builder: (context, snapshot) {
+        final isSaved = snapshot.data?.exists ?? false;
+        return IconButton(
+          tooltip: snapshot.hasError
+              ? 'Could not load saved-item status'
+              : isSaved
+                  ? 'Remove saved item'
+                  : 'Save item',
+          icon: snapshot.hasError
+              ? const Icon(Icons.bookmark_outline)
+              : Icon(isSaved ? Icons.bookmark : Icons.bookmark_border),
+          onPressed: snapshot.hasError ||
+                  snapshot.connectionState == ConnectionState.waiting
+              ? null
+              : () async {
+                  try {
+                    if (isSaved) {
+                      await savedItemRef.delete();
+                    } else {
+                      await savedItemRef.set({
+                        'itemId': item.id,
+                        'title': item.title,
+                        'savedAt': FieldValue.serverTimestamp(),
+                      });
+                    }
+                  } on FirebaseException catch (error) {
+                    debugPrint(
+                        'Could not update saved item ${item.id}: $error');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not update your saved items.'),
+                        ),
+                      );
+                    }
+                  }
+                },
+        );
+      },
     );
   }
 

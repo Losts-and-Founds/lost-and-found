@@ -44,11 +44,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           foundCheckTriggered: () => _onFoundCheckTriggered(emit),
           lostCheckTriggered: () => _onLostCheckTriggered(emit),
           positionSelected: (LatLng pos) => _onPositionSelected(emit, pos),
-          categorySelected: (id, category) => _onCategorySelected(emit, id, category),
+          categorySelected: (id, category) =>
+              _onCategorySelected(emit, id, category),
           dateSelected: (date) => _onDateSelected(emit, date),
-          searchSubmitted: (refreshResult) => _onSearchSubmit(emit, refreshResult),
+          searchSubmitted: (refreshResult) =>
+              _onSearchSubmit(emit, refreshResult),
           showFilters: () => _onShowFilters(emit),
-          sortParameterChanged: (order) => _onChangeSortingParameter(emit, order),
+          sortParameterChanged: (order) =>
+              _onChangeSortingParameter(emit, order),
           searchPageChanged: (page) => _onSearchPageChanged(emit, page),
           restoreInitial: () => emit(SearchState.initial()),
         );
@@ -68,10 +71,11 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     );
   }
 
-  Future<void> _onSearchSubmit(Emitter<SearchState> emit, bool refreshResult) async {
+  Future<void> _onSearchSubmit(
+      Emitter<SearchState> emit, bool refreshResult) async {
     // refreshResult needed to refresh results in case of language change
 
-    if(refreshResult && state.pageState != SearchPageState.resultPage) {
+    if (refreshResult && state.pageState != SearchPageState.resultPage) {
       return;
     }
 
@@ -83,32 +87,35 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     );
 
     final isTypeValid = state.itemsToSearch.value.isRight();
-    final isPositionValid = state.pos.value.isRight();
-    final isCategoryValid = state.cat.value.isRight();
-
     Either<Failure, Success>? searchFailureOrSuccess;
     List<SearchItem> items = [];
     SearchPageState pageState = state.pageState;
 
-    if (isTypeValid && isPositionValid && isCategoryValid) {
+    if (isTypeValid) {
       emit(state.copyWith(pageState: SearchPageState.loadingPage));
 
-      final itemsToSearch = state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
+      final itemsToSearch =
+          state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
       final pos = state.pos.value.getOrElse(() => const LatLng(0, 0));
 
       final params = SearchItemsParams(
-        range: 400,
-        X: pos.longitude,
-        Y: pos.latitude,
+        rangeMeters: 400,
+        latitude: pos == const LatLng(0, 0) ? null : pos.latitude,
+        longitude: pos == const LatLng(0, 0) ? null : pos.longitude,
         type: itemsToSearch.first && itemsToSearch.second
             ? SearchItemType.all
-            : (itemsToSearch.first ? SearchItemType.found : SearchItemType.lost),
-        category: state.cat.value.getOrElse(() => 0),
+            : (itemsToSearch.first
+                ? SearchItemType.found
+                : SearchItemType.lost),
+        categoryId: state.cat.value.getOrElse(() => -1) > -1
+            ? state.cat.value.getOrElse(() => -1)
+            : null,
         date: state.dateTime,
       );
 
       final searchResponse = await _searchItemsUseCase(params);
-      searchResponse.fold((failure) => searchFailureOrSuccess = Left(failure), (searchItems) {
+      searchResponse.fold((failure) => searchFailureOrSuccess = Left(failure),
+          (searchItems) {
         searchFailureOrSuccess = const Right(Success.genericSuccess());
         items = searchItems;
         pageState = SearchPageState.resultPage;
@@ -143,23 +150,34 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   }
 
   void _onFoundCheckTriggered(Emitter<SearchState> emit) {
-    final itemsToSearch = state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
-    emit(state.copyWith(itemsToSearch: ItemsTypeField(!itemsToSearch.first, itemsToSearch.second)));
+    final itemsToSearch =
+        state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
+    emit(state.copyWith(
+        itemsToSearch:
+            ItemsTypeField(!itemsToSearch.first, itemsToSearch.second)));
   }
 
   void _onLostCheckTriggered(Emitter<SearchState> emit) {
-    final itemsToSearch = state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
-    emit(state.copyWith(itemsToSearch: ItemsTypeField(itemsToSearch.first, !itemsToSearch.second)));
+    final itemsToSearch =
+        state.itemsToSearch.value.getOrElse(() => const Pair(false, false));
+    emit(state.copyWith(
+        itemsToSearch:
+            ItemsTypeField(itemsToSearch.first, !itemsToSearch.second)));
   }
 
-  Future<void> _onPositionSelected(Emitter<SearchState> emit, LatLng pos) async {
+  Future<void> _onPositionSelected(
+      Emitter<SearchState> emit, LatLng pos) async {
     emit(state.copyWith(isLoadingPosition: true));
 
-    final addressOrFailure =
-        await _getAddressFromPositionUseCase(GetAddressFromPositionParams(lat: pos.latitude, lon: pos.longitude));
+    final addressOrFailure = await _getAddressFromPositionUseCase(
+        GetAddressFromPositionParams(lat: pos.latitude, lon: pos.longitude));
 
-    addressOrFailure.fold((failure) => emit(state.copyWith(isLoadingPosition: false)),
-        (address) => emit(state.copyWith(address: address, pos: PositionField(pos), isLoadingPosition: false)));
+    addressOrFailure.fold(
+        (failure) => emit(state.copyWith(isLoadingPosition: false)),
+        (address) => emit(state.copyWith(
+            address: address,
+            pos: PositionField(pos),
+            isLoadingPosition: false)));
   }
 
   void _onChangeSortingParameter(Emitter<SearchState> emit, ResultOrder order) {
@@ -172,9 +190,11 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
     switch (order) {
       case ResultOrder.alphabeticAscending:
-        orderedItems.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        orderedItems.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       case ResultOrder.alphabeticDescending:
-        orderedItems.sort((b, a) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        orderedItems.sort(
+            (b, a) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       case ResultOrder.dateAscending:
         orderedItems.sort((a, b) => a.date.compareTo(b.date));
       case ResultOrder.dateDescending:

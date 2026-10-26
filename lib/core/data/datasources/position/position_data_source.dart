@@ -66,10 +66,7 @@ class PositionDataSourceImpl implements PositionDataSource {
       // Keep coordinate fallback if the geocoder response is malformed.
     }
 
-    return AddressDto(
-      address:
-          '${params.lat.toStringAsFixed(4)}, ${params.lon.toStringAsFixed(4)}',
-    );
+    return const AddressDto(address: 'Nsukka, Enugu State');
   }
 
   @override

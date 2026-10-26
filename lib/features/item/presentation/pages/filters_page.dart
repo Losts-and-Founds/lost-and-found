@@ -27,9 +27,11 @@ class FiltersScreen extends StatelessWidget {
               : 10,
     );
     return BlocBuilder<AppGlobalBloc, AppGlobalState>(
-      builder: (appGlobalCtx, appGlobalState) => BlocConsumer<SearchBloc, SearchState>(
+      builder: (appGlobalCtx, appGlobalState) =>
+          BlocConsumer<SearchBloc, SearchState>(
         listener: (ctx, state) {
-          if (state.searchFailureOrSuccess != null && state.searchFailureOrSuccess!.isRight()) {
+          if (state.searchFailureOrSuccess != null &&
+              state.searchFailureOrSuccess!.isRight()) {
             Navigator.pop(ctx);
           }
         },
@@ -41,12 +43,15 @@ class FiltersScreen extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(ctx),
               ),
-              iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+              iconTheme: IconThemeData(
+                  color: Theme.of(context).colorScheme.onBackground),
               title: Text(
                 AppLocalizations.of(context)!.filtersPageTitle,
-                style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onBackground),
               ),
-              backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+              backgroundColor:
+                  Theme.of(context).extension<CustomColors>()!.background2,
               elevation: 0,
               surfaceTintColor: Theme.of(context).colorScheme.outline,
               shadowColor: Theme.of(context).colorScheme.outline,
@@ -70,26 +75,45 @@ class FiltersScreen extends StatelessWidget {
                             ],
                           ),
                           ElevatedButton(
-                            onPressed: () => ctx.read<SearchBloc>().add(const SearchEvent.resetFilters()),
+                            onPressed: () => ctx
+                                .read<SearchBloc>()
+                                .add(const SearchEvent.resetFilters()),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
                               shape: const StadiumBorder(),
-                              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 20),
                             ),
-                            child: Text(AppLocalizations.of(context)!.deleteAll, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),),
+                            child: Text(
+                              AppLocalizations.of(context)!.deleteAll,
+                              style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     PersonalizedCheckBoxesForm(
-                      foundChecked: state.itemsToSearch.value.getOrElse(() => const Pair(false, false)).first,
-                      lostChecked: state.itemsToSearch.value.getOrElse(() => const Pair(false, false)).second,
+                      foundChecked: state.itemsToSearch.value
+                          .getOrElse(() => const Pair(false, false))
+                          .first,
+                      lostChecked: state.itemsToSearch.value
+                          .getOrElse(() => const Pair(false, false))
+                          .second,
                       showError: state.showError,
-                      onFoundCheckedChanged: (_) => ctx.read<SearchBloc>().add(const SearchEvent.foundCheckTriggered()),
-                      onLostCheckedChanged: (_) => ctx.read<SearchBloc>().add(const SearchEvent.lostCheckTriggered()),
+                      onFoundCheckedChanged: (_) => ctx
+                          .read<SearchBloc>()
+                          .add(const SearchEvent.foundCheckTriggered()),
+                      onLostCheckedChanged: (_) => ctx
+                          .read<SearchBloc>()
+                          .add(const SearchEvent.lostCheckTriggered()),
                       errorText: state.itemsToSearch.value.fold(
                           (failure) => failure.maybeWhen(
-                              validationFailure: () => AppLocalizations.of(context)!.failureInvalidType,
+                              validationFailure: () =>
+                                  AppLocalizations.of(context)!
+                                      .failureInvalidType,
                               orElse: () => ""),
                           (_) => ""),
                     ),
@@ -99,40 +123,56 @@ class FiltersScreen extends StatelessWidget {
                       address: state.address,
                       onPositionSelected: (LatLng? pos) {
                         if (pos != null) {
-                          ctx.read<SearchBloc>().add(SearchEvent.positionSelected(LatLng(pos.latitude, pos.longitude)));
+                          ctx.read<SearchBloc>().add(
+                              SearchEvent.positionSelected(
+                                  LatLng(pos.latitude, pos.longitude)));
                         }
                       },
-                      startingPosition: state.pos.value.getOrElse(() => appGlobalState.defaultPosition),
-                      showError: state.showError,
+                      startingPosition: state.pos.value
+                          .getOrElse(() => appGlobalState.defaultPosition),
+                      showError: false,
                       errorText: state.pos.value.fold(
                           (failure) => failure.maybeWhen(
-                              validationFailure: () => AppLocalizations.of(context)!.failureInvalidPosition,
+                              validationFailure: () =>
+                                  AppLocalizations.of(context)!
+                                      .failureInvalidPosition,
                               orElse: () => ""),
                           (_) => ""),
                     ),
                     sizedBox,
                     CategorySelectionForm(
-                      onTap: (value) =>
-                          ctx.read<SearchBloc>().add(SearchEvent.categorySelected(value.first, value.second)),
+                      onTap: (value) => ctx.read<SearchBloc>().add(
+                          SearchEvent.categorySelected(
+                              value.first, value.second)),
                       category: state.category,
-                      showError: state.showError,
+                      showError: false,
                       errorText: state.cat.value.fold(
                           (failure) => failure.maybeWhen(
-                              validationFailure: () => AppLocalizations.of(context)!.failureInvalidCategory,
+                              validationFailure: () =>
+                                  AppLocalizations.of(context)!
+                                      .failureInvalidCategory,
                               orElse: () => ""),
                           (_) => ""),
                     ),
                     sizedBox,
                     DateSelectionForm(
                       date: state.dateTime,
-                      onTap: (value) => ctx.read<SearchBloc>().add(SearchEvent.dateSelected(value)),
+                      onTap: (value) => ctx
+                          .read<SearchBloc>()
+                          .add(SearchEvent.dateSelected(value)),
                     ),
                     sizedBox,
                     PersonalizedLargeGreenButton(
-                      onPressed: () => {ctx.read<SearchBloc>().add(const SearchEvent.searchSubmitted(false))},
+                      onPressed: () => {
+                        ctx
+                            .read<SearchBloc>()
+                            .add(const SearchEvent.searchSubmitted(false))
+                      },
                       text: Text(
                         AppLocalizations.of(context)!.search,
-                        style: TextStyle(fontSize: 20, color: Theme.of(context).colorScheme.onPrimary),
+                        style: TextStyle(
+                            fontSize: 20,
+                            color: Theme.of(context).colorScheme.onPrimary),
                       ),
                     )
                   ],

@@ -18,50 +18,85 @@ class SelectPositionScreen extends StatefulWidget {
   final LatLng startingPosition;
   final String address;
 
-  const SelectPositionScreen({super.key, required this.startingPosition, required this.address});
+  const SelectPositionScreen(
+      {super.key, required this.startingPosition, required this.address});
 
   @override
   State<SelectPositionScreen> createState() => _SelectPositionScreenState();
 }
 
-class _SelectPositionScreenState extends State<SelectPositionScreen> with TickerProviderStateMixin {
+class _SelectPositionScreenState extends State<SelectPositionScreen>
+    with TickerProviderStateMixin {
+  static final LatLng _nsukkaCenter = LatLng(6.8583, 7.3958);
+  static final LatLngBounds _nsukkaBounds = LatLngBounds(
+    LatLng(6.70, 7.25),
+    LatLng(7.00, 7.55),
+  );
+
   bool isAlertSet = false;
-  late LatLng center = widget.startingPosition;
-  late LatLng markerPos = widget.startingPosition;
+  late LatLng center = _nsukkaBounds.contains(widget.startingPosition)
+      ? widget.startingPosition
+      : _nsukkaCenter;
+  late LatLng markerPos = center;
   late String address = widget.address;
   final _controller = TextEditingController();
 
-  late final AnimatedMapController mapController =
-      AnimatedMapController(vsync: this, duration: const Duration(milliseconds: 3000));
+  late final AnimatedMapController mapController = AnimatedMapController(
+      vsync: this, duration: const Duration(milliseconds: 3000));
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppGlobalBloc, AppGlobalState>(
-      builder: (appGlobalCtx, appGlobalState) => BlocBuilder<AppGlobalBloc, AppGlobalState>(
-        builder: (appGlobalCtx, appGlobalState) => BlocProvider<SelectPositionBloc>(
-          create: (_) => sl<SelectPositionBloc>()..add(SelectPositionEvent.selectPositionCreated(markerPos, address)),
+      builder: (appGlobalCtx, appGlobalState) =>
+          BlocBuilder<AppGlobalBloc, AppGlobalState>(
+        builder: (appGlobalCtx, appGlobalState) =>
+            BlocProvider<SelectPositionBloc>(
+          create: (_) => sl<SelectPositionBloc>()
+            ..add(
+                SelectPositionEvent.selectPositionCreated(markerPos, address)),
           child: BlocConsumer<SelectPositionBloc, SelectPositionState>(
             listener: (ctx, state) {
               final addressFailureOrSuccess = state.addressFailureOrSuccess;
               final positionFailureOrSuccess = state.positionFailureOrSuccess;
 
               if (markerPos.latitude != state.userCurrentPos.latitude ||
-                  (positionFailureOrSuccess != null && positionFailureOrSuccess.isRight())) {
-                if (markerPos.latitude != state.userCurrentPos.latitude) {
-                  setState(() {
-                    markerPos = LatLng(state.userCurrentPos.latitude, state.userCurrentPos.longitude);
-                  });
-                }
+                  (positionFailureOrSuccess != null &&
+                      positionFailureOrSuccess.isRight())) {
+                if (!_nsukkaBounds.contains(state.userCurrentPos)) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Choose a location within the Nsukka area.',
+                      ),
+                    ),
+                  );
+                  if (!state.isContainerExpanded) {
+                    ctx.read<SelectPositionBloc>().add(
+                        const SelectPositionEvent.fakeContainerToggle(true));
+                  }
+                } else {
+                  if (markerPos.latitude != state.userCurrentPos.latitude) {
+                    setState(() {
+                      markerPos = state.userCurrentPos;
+                    });
+                  }
 
-                if (addressFailureOrSuccess != null && addressFailureOrSuccess.isRight()) {
-                  mapController.animatedZoomOut();
-                }
+                  if (addressFailureOrSuccess != null &&
+                      addressFailureOrSuccess.isRight()) {
+                    mapController.animatedZoomOut();
+                  }
 
-                mapController.centerOnPoint(LatLng(markerPos.latitude, markerPos.longitude), zoom: 17);
+                  mapController.centerOnPoint(
+                    state.userCurrentPos,
+                    zoom: 17,
+                  );
+                }
               }
 
               if (addressFailureOrSuccess != null) {
-                addressFailureOrSuccess.fold((failure) => showBasicErrorSnackbar(ctx, failure), (r) => null);
+                addressFailureOrSuccess.fold(
+                    (failure) => showBasicErrorSnackbar(ctx, failure),
+                    (r) => null);
               }
 
               if (positionFailureOrSuccess != null) {
@@ -75,24 +110,29 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                   } else if (!state.isDeviceConnected) {
                     showConnectionLostAlert(state.isDeviceConnected);
                   } else if (!state.isServiceAvailable) {
-                    showPositionServiceNotAvailableAlert(state.isDeviceConnected);
+                    showPositionServiceNotAvailableAlert(
+                        state.isDeviceConnected);
                   }
                 }, (_) {
-                  ctx.read<SelectPositionBloc>().add(const SelectPositionEvent.fakeContainerToggle(false));
+                  ctx.read<SelectPositionBloc>().add(
+                      const SelectPositionEvent.fakeContainerToggle(false));
                 });
               }
             },
             builder: (ctx, state) {
               var fakeButton = InkWell(
-                onTap: () => ctx
-                    .read<SelectPositionBloc>()
-                    .add(SelectPositionEvent.fakeContainerToggle(!state.isContainerExpanded)),
+                onTap: () => ctx.read<SelectPositionBloc>().add(
+                    SelectPositionEvent.fakeContainerToggle(
+                        !state.isContainerExpanded)),
                 child: Container(
                     padding: const EdgeInsets.all(12),
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                     ),
                     child: Row(
                       children: [
@@ -106,8 +146,11 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                 ? AppLocalizations.of(context)!.searchPosition
                                 : state.address.value.getOrElse(() => ""),
                             textAlign:
-                                state.address.value.getOrElse(() => "").isEmpty ? TextAlign.center : TextAlign.left,
-                            style: const TextStyle(fontSize: 18, overflow: TextOverflow.ellipsis),
+                                state.address.value.getOrElse(() => "").isEmpty
+                                    ? TextAlign.center
+                                    : TextAlign.left,
+                            style: const TextStyle(
+                                fontSize: 18, overflow: TextOverflow.ellipsis),
                           ),
                         ),
                         SizedBox(
@@ -118,38 +161,54 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
               );
               var textFormField = TextFormField(
                 controller: _controller,
-                onChanged: (value) => ctx.read<SelectPositionBloc>().add(SelectPositionEvent.addressFieldChanged(value)),
+                onChanged: (value) => ctx
+                    .read<SelectPositionBloc>()
+                    .add(SelectPositionEvent.addressFieldChanged(value)),
                 autofocus: true,
                 decoration: InputDecoration(
                     errorMaxLines: 3,
                     hintText: AppLocalizations.of(context)!.insertCityOrAddress,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-                    fillColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none),
+                    fillColor:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
                     filled: true,
                     prefixIcon: const Icon(Icons.search),
-                    suffixIconColor: Theme.of(context).colorScheme.onBackground.withOpacity(0.8),
+                    suffixIconColor: Theme.of(context)
+                        .colorScheme
+                        .onBackground
+                        .withOpacity(0.8),
                     suffixIcon: IconButton(
                       onPressed: () {
-                        ctx.read<SelectPositionBloc>().add(const SelectPositionEvent.addressFieldChanged(""));
+                        ctx.read<SelectPositionBloc>().add(
+                            const SelectPositionEvent.addressFieldChanged(""));
                         _controller.clear();
                       },
                       icon: const Icon(Icons.cancel),
                     )),
                 validator: (_) => state.address.value.fold(
                   (failure) => failure.maybeWhen<String?>(
-                      validationFailure: () => AppLocalizations.of(context)!.failureInvalidAddress, orElse: () => null),
+                      validationFailure: () =>
+                          AppLocalizations.of(context)!.failureInvalidAddress,
+                      orElse: () => null),
                   (_) => null,
                 ),
-                autovalidateMode: state.showError == true ? AutovalidateMode.always : AutovalidateMode.disabled,
+                autovalidateMode: state.showError == true
+                    ? AutovalidateMode.always
+                    : AutovalidateMode.disabled,
               );
               return Scaffold(
-                backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+                backgroundColor:
+                    Theme.of(context).extension<CustomColors>()!.background2,
                 appBar: AppBar(
-                  backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+                  backgroundColor:
+                      Theme.of(context).extension<CustomColors>()!.background2,
                   elevation: 0,
                   surfaceTintColor: Theme.of(context).colorScheme.outline,
                   shadowColor: Theme.of(context).colorScheme.outline,
-                  iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+                  iconTheme: IconThemeData(
+                      color: Theme.of(context).colorScheme.onBackground),
                   title: Text(
                     AppLocalizations.of(context)!.positionPageTitle,
                     style: TextStyle(
@@ -166,38 +225,49 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                             SizedBox(
                               height: MediaQuery.of(context).size.height,
                               child: Padding(
-                                padding: const EdgeInsets.fromLTRB(0, 0, 0, 150),
+                                padding:
+                                    const EdgeInsets.fromLTRB(0, 0, 0, 150),
                                 child: FlutterMap(
                                   mapController: mapController.mapController,
                                   options: MapOptions(
                                       maxZoom: 18,
+                                      minZoom: 11,
+                                      maxBounds: _nsukkaBounds,
+                                      slideOnBoundaries: true,
                                       onMapReady: () {
-                                        if (markerPos != appGlobalState.defaultPosition) {
-                                          mapController.animatedZoomOut();
-                                          mapController.centerOnPoint(LatLng(markerPos.latitude, markerPos.longitude),
-                                              zoom: 17);
-                                        }
+                                        mapController.centerOnPoint(
+                                          markerPos,
+                                          zoom: 15,
+                                        );
                                       },
-                                      interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                                      interactiveFlags: InteractiveFlag.all &
+                                          ~InteractiveFlag.rotate,
                                       center: center,
-                                      zoom: 5.5,
-                                      onPositionChanged: (MapPosition position, bool gesture) {
+                                      zoom: 15,
+                                      onPositionChanged:
+                                          (MapPosition position, bool gesture) {
                                         // Update marker position based on the map center
                                         setState(() {
-                                          markerPos = LatLng(position.center!.latitude, position.center!.longitude);
+                                          markerPos = LatLng(
+                                              position.center!.latitude,
+                                              position.center!.longitude);
                                         });
                                       }),
                                   children: [
                                     TileLayer(
-                                      urlTemplate: appGlobalState.theme == ThemeMode.dark
+                                      urlTemplate: appGlobalState.theme ==
+                                              ThemeMode.dark
                                           ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png?api_key=1a6bb6ec-c67a-42db-bde0-08b060c71f13'
-                                          : (appGlobalState.theme == ThemeMode.light
+                                          : (appGlobalState.theme ==
+                                                  ThemeMode.light
                                               ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                                              : (MediaQuery.of(context).platformBrightness == Brightness.dark
+                                              : (MediaQuery.of(context)
+                                                          .platformBrightness ==
+                                                      Brightness.dark
                                                   ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png?api_key=1a6bb6ec-c67a-42db-bde0-08b060c71f13'
                                                   : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png')),
-                                      userAgentPackageName: 'it.fabc.lostandfound',
-
+                                      userAgentPackageName:
+                                          'it.fabc.lostandfound',
                                     ),
                                     !state.isContainerExpanded
                                         ? MarkerLayer(
@@ -207,10 +277,14 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                                 height: 200.0,
                                                 point: markerPos,
                                                 builder: (ctx) => Padding(
-                                                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 65),
+                                                  padding:
+                                                      const EdgeInsets.fromLTRB(
+                                                          0, 0, 0, 65),
                                                   child: Icon(
                                                     Icons.location_on,
-                                                    color: Theme.of(context).colorScheme.primary,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
                                                     weight: 10,
                                                     size: 80,
                                                   ),
@@ -237,17 +311,24 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                         height: 50.0,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: Theme.of(context).colorScheme.primary,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
                                         ),
                                         child: InkWell(
                                           onTap: () => ctx
                                               .read<SelectPositionBloc>()
-                                              .add(SelectPositionEvent.fakeContainerToggle(!state.isContainerExpanded)),
-                                          borderRadius: BorderRadius.circular(24.0),
+                                              .add(SelectPositionEvent
+                                                  .fakeContainerToggle(!state
+                                                      .isContainerExpanded)),
+                                          borderRadius:
+                                              BorderRadius.circular(24.0),
                                           child: Center(
                                             child: Icon(
                                               Icons.arrow_downward,
-                                              color: Theme.of(context).colorScheme.surface,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surface,
                                             ),
                                           ),
                                         ),
@@ -259,41 +340,62 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                 width: MediaQuery.of(context).size.width,
                                 //height: state.isContainerExpanded? 260 : 240.0,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).extension<CustomColors>()!.background2,
+                                  color: Theme.of(context)
+                                      .extension<CustomColors>()!
+                                      .background2,
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(20.0),
                                     topRight: Radius.circular(20.0),
                                   ),
                                 ),
                                 child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
                                     Padding(
-                                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                                      child: state.isContainerExpanded ? textFormField : fakeButton,
+                                      padding: const EdgeInsets.fromLTRB(
+                                          12, 8, 12, 8),
+                                      child: state.isContainerExpanded
+                                          ? textFormField
+                                          : fakeButton,
                                     ),
                                     state.isContainerExpanded
                                         ? Padding(
-                                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                                            padding: const EdgeInsets.fromLTRB(
+                                                16, 8, 16, 8),
                                             child: PersonalizedLargeGreenButton(
                                                 onPressed: () {
-                                                  if (!state.isSearchingCurrentPosition &&
-                                                      !state.isSearchingAddressPosition) {
+                                                  if (!state
+                                                          .isSearchingCurrentPosition &&
+                                                      !state
+                                                          .isSearchingAddressPosition) {
                                                     ctx
-                                                        .read<SelectPositionBloc>()
-                                                        .add(const SelectPositionEvent.searchPosition());
+                                                        .read<
+                                                            SelectPositionBloc>()
+                                                        .add(const SelectPositionEvent
+                                                            .searchPosition());
                                                   }
                                                 },
-                                                text: state.isSearchingCurrentPosition || state.isSearchingAddressPosition
+                                                text: state.isSearchingCurrentPosition ||
+                                                        state
+                                                            .isSearchingAddressPosition
                                                     ? CustomCircularProgress(
                                                         size: 25,
-                                                        color: Theme.of(context).colorScheme.onPrimary,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onPrimary,
                                                       )
                                                     : Text(
-                                                        AppLocalizations.of(context)!.search,
+                                                        AppLocalizations.of(
+                                                                context)!
+                                                            .search,
                                                         style: TextStyle(
-                                                            fontSize: 16, color: Theme.of(context).colorScheme.onPrimary),
+                                                            fontSize: 16,
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .onPrimary),
                                                       )),
                                           )
                                         : Container(),
@@ -301,22 +403,28 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                       padding: const EdgeInsets.all(8),
                                       child: TextButton(
                                         onPressed: () {
-                                          if (!state.isSearchingAddressPosition && !state.isSearchingCurrentPosition) {
+                                          if (!state
+                                                  .isSearchingAddressPosition &&
+                                              !state
+                                                  .isSearchingCurrentPosition) {
                                             if (state.hasPermissions &&
                                                 state.isDeviceConnected &&
                                                 state.isServiceAvailable) {
                                               mapController.animatedZoomOut();
                                             }
 
-                                            ctx
-                                                .read<SelectPositionBloc>()
-                                                .add(const SelectPositionEvent.selectCurrentPosition());
+                                            ctx.read<SelectPositionBloc>().add(
+                                                const SelectPositionEvent
+                                                    .selectCurrentPosition());
                                           }
                                         },
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
-                                            state.isSearchingAddressPosition || state.isSearchingCurrentPosition
+                                            state.isSearchingAddressPosition ||
+                                                    state
+                                                        .isSearchingCurrentPosition
                                                 ? Container()
                                                 : const Flexible(
                                                     child: Icon(
@@ -325,16 +433,22 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                                     ),
                                                   ),
                                             const SizedBox(width: 8.0),
-                                            state.isSearchingAddressPosition || state.isSearchingCurrentPosition
+                                            state.isSearchingAddressPosition ||
+                                                    state
+                                                        .isSearchingCurrentPosition
                                                 ? const CustomCircularProgress(
                                                     size: 25,
                                                   )
                                                 : Flexible(
                                                     flex: 3,
                                                     child: Text(
-                                                      AppLocalizations.of(context)!.positionUseCurrentLocation,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: const TextStyle(fontSize: 16),
+                                                      AppLocalizations.of(
+                                                              context)!
+                                                          .positionUseCurrentLocation,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                          fontSize: 16),
                                                     ),
                                                   ),
                                           ],
@@ -344,30 +458,48 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                                     state.isContainerExpanded
                                         ? Container()
                                         : Padding(
-                                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                                            padding: const EdgeInsets.fromLTRB(
+                                                16, 10, 16, 10),
                                             child: Row(
                                               children: [
                                                 Expanded(
                                                   child: ElevatedButton(
                                                     onPressed: () {
-                                                      Navigator.pop(context, markerPos);
+                                                      Navigator.pop(
+                                                          context, markerPos);
                                                     },
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: Theme.of(context).colorScheme.primary,
-                                                      shape: const StadiumBorder(),
-                                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .primary,
+                                                      shape:
+                                                          const StadiumBorder(),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 16),
                                                     ),
                                                     child: state.isSearchingAddressPosition ||
-                                                            state.isSearchingCurrentPosition
+                                                            state
+                                                                .isSearchingCurrentPosition
                                                         ? CustomCircularProgress(
                                                             size: 25,
-                                                            color: Theme.of(context).colorScheme.onPrimary,
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .onPrimary,
                                                           )
                                                         : Text(
-                                                            AppLocalizations.of(context)!.positionUseSelected,
+                                                            AppLocalizations.of(
+                                                                    context)!
+                                                                .positionUseSelected,
                                                             style: TextStyle(
                                                                 fontSize: 18,
-                                                                color: Theme.of(context).colorScheme.onPrimary),
+                                                                color: Theme.of(
+                                                                        context)
+                                                                    .colorScheme
+                                                                    .onPrimary),
                                                           ),
                                                   ),
                                                 ),
@@ -395,17 +527,22 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          surfaceTintColor: Theme.of(context).extension<CustomColors>()!.background2,
-          backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
-          title: Text(AppLocalizations.of(context)!.locationPermissionDialogTitle),
-          content: Text(AppLocalizations.of(context)!.locationPermissionDialogContentDenied),
+          surfaceTintColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          backgroundColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          title:
+              Text(AppLocalizations.of(context)!.locationPermissionDialogTitle),
+          content: Text(AppLocalizations.of(context)!
+              .locationPermissionDialogContentDenied),
           actions: <Widget>[
             PersonalizedLargeGreenButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
                 text: Text(AppLocalizations.of(context)!.close,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary))),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary))),
           ],
         );
       },
@@ -417,17 +554,22 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          surfaceTintColor: Theme.of(context).extension<CustomColors>()!.background2,
-          backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
-          title: Text(AppLocalizations.of(context)!.locationPermissionDialogTitle),
-          content: Text(AppLocalizations.of(context)!.locationPermissionDialogContentPermanentlyDenied),
+          surfaceTintColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          backgroundColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          title:
+              Text(AppLocalizations.of(context)!.locationPermissionDialogTitle),
+          content: Text(AppLocalizations.of(context)!
+              .locationPermissionDialogContentPermanentlyDenied),
           actions: <Widget>[
             PersonalizedLargeGreenButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
                 text: Text(AppLocalizations.of(context)!.close,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary))),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary))),
           ],
         );
       },
@@ -439,10 +581,13 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          surfaceTintColor: Theme.of(context).extension<CustomColors>()!.background2,
-          backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+          surfaceTintColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          backgroundColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
           title: Text(AppLocalizations.of(context)!.noConnectionDialogTitle),
-          content: Text(AppLocalizations.of(context)!.noConnectionDialogContent),
+          content:
+              Text(AppLocalizations.of(context)!.noConnectionDialogContent),
           actions: <Widget>[
             PersonalizedLargeGreenButton(
                 onPressed: () async {
@@ -454,7 +599,8 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                   }
                 },
                 text: Text(AppLocalizations.of(context)!.ok,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)))
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary)))
           ],
         );
       },
@@ -466,8 +612,10 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          surfaceTintColor: Theme.of(context).extension<CustomColors>()!.background2,
-          backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+          surfaceTintColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
+          backgroundColor:
+              Theme.of(context).extension<CustomColors>()!.background2,
           title: Text(AppLocalizations.of(context)!.positionDialogTitle),
           content: Text(AppLocalizations.of(context)!.positionDialogContent),
           actions: <Widget>[
@@ -482,7 +630,8 @@ class _SelectPositionScreenState extends State<SelectPositionScreen> with Ticker
                 },
                 text: Text(
                   AppLocalizations.of(context)!.ok,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                 ))
           ],
         );

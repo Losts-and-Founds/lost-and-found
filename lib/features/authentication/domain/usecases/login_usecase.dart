@@ -17,6 +17,10 @@ class LoginUseCase implements UseCase<Success, LoginParams> {
   Future<Either<Failure, Success>> call(LoginParams? params) async {
     return await _repository.login(params);
   }
+
+  Future<Either<Failure, Success>> completeCurrentUserLogin() async {
+    return _repository.loginCurrentUser();
+  }
 }
 
 @JsonSerializable()

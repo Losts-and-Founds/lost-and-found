@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -51,10 +52,15 @@ class ItemDataSourceImpl implements ItemDataSource {
 
   @override
   Future<List<UserItemDto>> getUserItems(GetUserItemsParams params) async {
-    final snapshot = await FirebaseFirestore.instance
+    final query = FirebaseFirestore.instance
         .collection('items')
-        .where('status', isEqualTo: params.type.name)
-        .get();
+        .where('status', isEqualTo: params.type.name);
+    var snapshot = await query.get(GetOptions(
+      source: params.preferCache ? Source.cache : Source.server,
+    ));
+    if (params.preferCache && snapshot.docs.isEmpty) {
+      snapshot = await query.get(const GetOptions(source: Source.server));
+    }
 
     final items = snapshot.docs.map((doc) {
       final data = doc.data();
@@ -90,23 +96,75 @@ class ItemDataSourceImpl implements ItemDataSource {
 
   @override
   Future<List<SearchItemDto>> searchItems(SearchItemsParams params) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('items')
-        .where('status', isEqualTo: params.type.name)
-        .get();
+    Query<Map<String, dynamic>> query =
+        FirebaseFirestore.instance.collection('items');
+    switch (params.type) {
+      case SearchItemType.found:
+        query = query.where('status', isEqualTo: 'found');
+      case SearchItemType.lost:
+        query = query.where('status', isEqualTo: 'lost');
+      case SearchItemType.all:
+        query = query.where('status', whereIn: const ['found', 'lost']);
+    }
+    if (params.categoryId != null) {
+      query = query.where('categoryId', isEqualTo: params.categoryId);
+    }
 
-    return snapshot.docs.map((doc) {
+    final snapshot = await query.get();
+    final results = <SearchItemDto>[];
+    for (final doc in snapshot.docs) {
       final data = doc.data();
-      return SearchItemDto(
+      var distance = 0.0;
+      if (params.latitude != null && params.longitude != null) {
+        final location = data['location'] as Map<String, dynamic>?;
+        final latitude = _asDouble(location?['latitude']);
+        final longitude = _asDouble(location?['longitude']);
+        if (latitude == 0 && longitude == 0) {
+          continue;
+        }
+        distance = _distanceInMeters(
+          params.latitude!,
+          params.longitude!,
+          latitude,
+          longitude,
+        );
+        if (distance > params.rangeMeters) {
+          continue;
+        }
+      }
+
+      final timestamp = data['createdAt'];
+      results.add(SearchItemDto(
         id: int.tryParse(doc.id) ?? 0,
         title: data['title'] as String? ?? '',
-        type: params.type.name,
+        type: data['status'] as String? ?? 'lost',
         image: (data['imageUrl'] as String?)?.isNotEmpty == true,
-        user: search_user.UserDto(id: 0, username: ''),
-        date: DateTime.now(),
-        distance: 0,
-      );
-    }).toList();
+        user: const search_user.UserDto(id: 0, username: ''),
+        date: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),
+        distance: distance,
+      ));
+    }
+    return results;
+  }
+
+  double _distanceInMeters(
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
+  ) {
+    const earthRadiusMeters = 6371000.0;
+    final latitudeDifference = (endLatitude - startLatitude) * math.pi / 180;
+    final longitudeDifference = (endLongitude - startLongitude) * math.pi / 180;
+    final startLatitudeRadians = startLatitude * math.pi / 180;
+    final endLatitudeRadians = endLatitude * math.pi / 180;
+    final haversine = math.pow(math.sin(latitudeDifference / 2), 2) +
+        math.cos(startLatitudeRadians) *
+            math.cos(endLatitudeRadians) *
+            math.pow(math.sin(longitudeDifference / 2), 2);
+    return 2 *
+        earthRadiusMeters *
+        math.asin(math.sqrt(haversine.clamp(0.0, 1.0)));
   }
 
   @override
@@ -126,9 +184,8 @@ class ItemDataSourceImpl implements ItemDataSource {
     final storedLocation = location?['label'] as String?;
     final coordinateParts = _coordinateParts(storedLocation);
     if (coordinateParts != null) {
-      // Older item creation stored longitude/latitude in the opposite fields.
-      longitude = coordinateParts[0];
-      latitude = coordinateParts[1];
+      latitude = coordinateParts[0];
+      longitude = coordinateParts[1];
     }
     final categoryId = _asInt(data['categoryId']);
     final ownerId = data['ownerId'] as String?;
@@ -308,8 +365,25 @@ class ItemDataSourceImpl implements ItemDataSource {
 
     final firestore = FirebaseFirestore.instance;
     final counterRef = firestore.collection('counters').doc('items');
+    final electronicsIdentifier = params.category == 2
+        ? _normalizeElectronicsIdentifier(params.electronicsIdentifier)
+        : null;
+    final matchingCandidates = params.type.name == 'found' &&
+            electronicsIdentifier != null
+        ? await firestore
+            .collection('items')
+            .where('electronicsIdentifier', isEqualTo: electronicsIdentifier)
+            .limit(100)
+            .get()
+        : null;
     final itemId = await firestore.runTransaction<int>((transaction) async {
       final counter = await transaction.get(counterRef);
+      final matchingItems = <DocumentSnapshot<Map<String, dynamic>>>[];
+      if (matchingCandidates != null) {
+        for (final candidate in matchingCandidates.docs) {
+          matchingItems.add(await transaction.get(candidate.reference));
+        }
+      }
       final nextId = (counter.data()?['value'] as int? ?? 0) + 1;
       final itemRef = firestore.collection('items').doc(nextId.toString());
 
@@ -321,10 +395,16 @@ class ItemDataSourceImpl implements ItemDataSource {
         'categoryId': params.category,
         'status': params.type.name,
         'imageUrl': null,
+        if (electronicsIdentifier != null) ...{
+          'electronicsDeviceType': params.electronicsDeviceType,
+          'electronicsIdentifier': electronicsIdentifier,
+        },
         'location': {
           'label': _usableLocationLabel(params.locationLabel),
-          'latitude': params.position.X,
-          'longitude': params.position.Y,
+          if (params.position.X != 0 || params.position.Y != 0) ...{
+            'latitude': params.position.X,
+            'longitude': params.position.Y,
+          },
         },
         'question': params.question,
         'createdAt': FieldValue.serverTimestamp(),
@@ -332,10 +412,45 @@ class ItemDataSourceImpl implements ItemDataSource {
         'resolvedAt': null,
       });
 
+      for (final lostItem in matchingItems) {
+        final lostData = lostItem.data();
+        if (lostData == null) continue;
+        final lostOwnerId = lostData['ownerId'] as String?;
+        if (lostData['status'] != 'lost' ||
+            lostData['electronicsIdentifier'] != electronicsIdentifier ||
+            lostOwnerId == null ||
+            lostOwnerId == user.uid ||
+            lostData['electronicsDeviceType'] != params.electronicsDeviceType) {
+          continue;
+        }
+
+        final notificationRef = firestore
+            .collection('notifications')
+            .doc('item_match_${nextId}_${lostItem.id}');
+        transaction.set(notificationRef, {
+          'recipientId': lostOwnerId,
+          'type': 'item_match',
+          'title': 'Possible match for your lost item',
+          'body':
+              'A found ${params.electronicsDeviceType} may match your lost item: ${lostData['title'] as String? ?? 'your report'}.',
+          'senderId': user.uid,
+          'itemId': nextId,
+          'matchedLostItemId': int.tryParse(lostItem.id),
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       return nextId;
     });
 
     return ItemResponseDto(id: itemId);
+  }
+
+  String? _normalizeElectronicsIdentifier(String? identifier) {
+    final normalized =
+        identifier?.toUpperCase().replaceAll(RegExp(r'\s+'), '').trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lost_and_found/features/item/presentation/pages/item_page.dart';
 import 'package:lost_and_found/utils/colors/custom_color.dart';
 import 'package:lost_and_found/utils/theme/app_theme.dart';
@@ -96,10 +97,16 @@ class ItemFeedCard extends StatelessWidget {
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: item.imageUrl?.startsWith('http') == true
-                          ? Image.network(
-                              item.imageUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: _thumbnailUrl(item.imageUrl!),
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              memCacheWidth: 320,
+                              memCacheHeight: 320,
+                              maxWidthDiskCache: 320,
+                              maxHeightDiskCache: 320,
+                              placeholder: (_, __) =>
+                                  _buildPlaceholder(context),
+                              errorWidget: (_, __, ___) =>
                                   _buildPlaceholder(context),
                             )
                           : _buildPlaceholder(context),
@@ -198,6 +205,18 @@ class ItemFeedCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  String _thumbnailUrl(String imageUrl) {
+    const uploadPath = '/image/upload/';
+    if (!imageUrl.contains('res.cloudinary.com') ||
+        !imageUrl.contains(uploadPath)) {
+      return imageUrl;
+    }
+    return imageUrl.replaceFirst(
+      uploadPath,
+      '${uploadPath}f_auto,q_auto,w_320,h_320,c_fill/',
     );
   }
 

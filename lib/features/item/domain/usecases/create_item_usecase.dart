@@ -27,6 +27,8 @@ class CreateItemParams {
   final int category;
   final String? question;
   final String? locationLabel;
+  final String? electronicsDeviceType;
+  final String? electronicsIdentifier;
 
   CreateItemParams({
     required this.title,
@@ -35,6 +37,8 @@ class CreateItemParams {
     required this.category,
     required this.question,
     this.locationLabel,
+    this.electronicsDeviceType,
+    this.electronicsIdentifier,
   });
 
   Map<String, dynamic> toJson() => _$CreateItemParamsToJson(this);

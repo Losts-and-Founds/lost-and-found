@@ -101,37 +101,6 @@ class UserScreen extends StatelessWidget {
     );
   }
 
-  void _showSavedItemsDialog(BuildContext context) {
-    final customColors =
-        Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
-    final mintColor = customColors.primaryAccent ?? const Color(0xFF52C46A);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor:
-            customColors.cardFill ?? Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.card)),
-        title: Text(
-          "Saved Items",
-          style: AppTypography.serifHeading(context, fontSize: 20),
-        ),
-        content: Text(
-          "Saved items are not available yet.",
-          style: AppTypography.sansBody(context, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text("Close",
-                style: AppTypography.sansBold(context, color: mintColor)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showLogoutDialog(BuildContext context, BuildContext userContext) {
     final customColors =
         Theme.of(context).extension<CustomColors>() ?? lightCustomColors;
@@ -486,7 +455,7 @@ class UserScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
-                      // 3. Activity Menu Card: Grouped list items ("My posts", "Saved items", "Notifications")
+                      // 3. Activity Menu Card: Posts, bookmarks, drafts, notifications
                       Container(
                         decoration: BoxDecoration(
                           color: containerFill,
@@ -504,10 +473,8 @@ class UserScreen extends StatelessWidget {
                               mintColor: mintColor,
                               textPrimary: textPrimary,
                               secondaryTextColor: secondaryTextColor,
-                              onTap: () {
-                                context.read<HomeControllerBloc>().add(
-                                    const HomeControllerEvent.tabChanged(0));
-                              },
+                              onTap: () =>
+                                  Navigator.of(context).pushNamed('/my-posts'),
                             ),
                             Divider(
                                 height: 1, color: borderColor.withOpacity(0.5)),
@@ -518,7 +485,20 @@ class UserScreen extends StatelessWidget {
                               mintColor: mintColor,
                               textPrimary: textPrimary,
                               secondaryTextColor: secondaryTextColor,
-                              onTap: () => _showSavedItemsDialog(context),
+                              onTap: () => Navigator.of(context)
+                                  .pushNamed('/saved-items'),
+                            ),
+                            Divider(
+                                height: 1, color: borderColor.withOpacity(0.5)),
+                            _buildMenuItem(
+                              context: context,
+                              icon: Icons.edit_note_outlined,
+                              title: "Drafts",
+                              mintColor: mintColor,
+                              textPrimary: textPrimary,
+                              secondaryTextColor: secondaryTextColor,
+                              onTap: () =>
+                                  Navigator.of(context).pushNamed('/drafts'),
                             ),
                             Divider(
                                 height: 1, color: borderColor.withOpacity(0.5)),

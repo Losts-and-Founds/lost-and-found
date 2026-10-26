@@ -153,6 +153,8 @@ class NotificationsScreen extends StatelessWidget {
       case 'new_claim':
       case 'claim_update':
         return Icons.fact_check_outlined;
+      case 'item_match':
+        return Icons.devices_outlined;
       default:
         return Icons.notifications_outlined;
     }

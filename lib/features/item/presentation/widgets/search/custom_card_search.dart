@@ -15,7 +15,7 @@ class CustomCardSearch extends StatelessWidget {
   final String type;
   final String token;
   final DateTime date;
-  final double distance;
+  final double? distance;
 
   const CustomCardSearch({
     super.key,
@@ -81,17 +81,18 @@ class CustomCardSearch extends StatelessWidget {
                               .secondaryTextColor,
                         ),
                       ),
-                      Text(
-                        AppLocalizations.of(context)!
-                            .metersAway(distance.toInt()),
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context)
-                              .extension<CustomColors>()!
-                              .secondaryTextColor,
+                      if (distance != null)
+                        Text(
+                          AppLocalizations.of(context)!
+                              .metersAway(distance!.toInt()),
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()!
+                                .secondaryTextColor,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
