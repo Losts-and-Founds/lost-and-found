@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lost_and_found/core/presentation/select_category/bloc/category_bloc.dart';
 import 'package:lost_and_found/core/presentation/widgets/error_page.dart';
 
-
 import '../../../../injection_container.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../utils/colors/custom_color.dart';
@@ -19,20 +18,24 @@ class CategorySelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<CategoryBloc>(
-      create: (_) => sl<CategoryBloc>()..add(const CategoryEvent.categoryCreated()),
+      create: (_) =>
+          sl<CategoryBloc>()..add(const CategoryEvent.categoryCreated()),
       child: BlocBuilder<CategoryBloc, CategoryState>(
         builder: (ctx, state) {
           return Scaffold(
               appBar: AppBar(
-                backgroundColor: Theme.of(context).extension<CustomColors>()!.background2,
+                backgroundColor:
+                    Theme.of(context).extension<CustomColors>()!.background2,
                 elevation: 0,
                 surfaceTintColor: Theme.of(context).colorScheme.outline,
                 shadowColor: Theme.of(context).colorScheme.outline,
                 title: Text(
                   AppLocalizations.of(context)!.categoryPageTitle,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onBackground),
                 ),
-                iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onBackground),
+                iconTheme: IconThemeData(
+                    color: Theme.of(context).colorScheme.onBackground),
               ),
               body: () {
                 if (state.isLoading) {
@@ -40,7 +43,10 @@ class CategorySelectionScreen extends StatelessWidget {
                     child: CircularProgressIndicator(value: null),
                   );
                 } else if (state.hasLoadingError) {
-                  return ErrorPage(onRetry: () => ctx.read<CategoryBloc>().add(const CategoryEvent.categoryCreated()));
+                  return ErrorPage(
+                      onRetry: () => ctx
+                          .read<CategoryBloc>()
+                          .add(const CategoryEvent.categoryCreated()));
                 } else {
                   return SingleChildScrollView(
                     child: Column(
@@ -54,17 +60,21 @@ class CategorySelectionScreen extends StatelessWidget {
                                     0,
                                     Category(
                                         id: 0,
-                                        name: AppLocalizations.of(context)!.categoryAllTitle,
+                                        name: AppLocalizations.of(context)!
+                                            .categoryAllTitle,
                                         icon: 0xe1f7,
-                                        description: AppLocalizations.of(context)!.categoryAllDescription),
+                                        description:
+                                            AppLocalizations.of(context)!
+                                                .categoryAllDescription),
                                   );
                                   return modifiableList;
                                 }())
                           .map((cat) => CategoryItem(
                                 categoryName: cat.name,
-                                icon: IconData(cat.icon, fontFamily: 'MaterialIcons'),
+                                icon: _iconForCategory(cat.icon),
                                 onTap: () {
-                                  Navigator.pop(context, Pair<int, String>(cat.id, cat.name));
+                                  Navigator.pop(context,
+                                      Pair<int, String>(cat.id, cat.name));
                                 },
                                 description: cat.description,
                               ))
@@ -76,5 +86,26 @@ class CategorySelectionScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  IconData _iconForCategory(int codePoint) {
+    switch (codePoint) {
+      case 57790:
+        return Icons.devices_rounded;
+      case 57747:
+        return Icons.description_rounded;
+      case 62426:
+        return Icons.vpn_key_rounded;
+      case 58943:
+        return Icons.checkroom_rounded;
+      case 57544:
+        return Icons.backpack_rounded;
+      case 58826:
+        return Icons.category_rounded;
+      case 0xe1f7:
+        return Icons.select_all_rounded;
+      default:
+        return Icons.category_rounded;
+    }
   }
 }

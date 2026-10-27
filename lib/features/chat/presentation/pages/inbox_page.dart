@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart';
 import 'package:lost_and_found/core/presentation/widgets/custom_circular_progress.dart';
-import 'package:lost_and_found/core/presentation/widgets/error_page.dart';
 import 'package:lost_and_found/features/chat/presentation/bloc/inbox/inbox_bloc.dart';
 import 'package:lost_and_found/features/chat/presentation/pages/chat_page.dart';
 import 'package:lost_and_found/utils/colors/custom_color.dart';
@@ -91,11 +90,28 @@ class _InboxScreenState extends State<InboxScreen> {
         }
 
         if (state.hasLoginOrLoadingError) {
-          return ErrorPage(
-            hasBottomBar: true,
-            onRetry: () => ctx
-                .read<InboxBloc>()
-                .add(const InboxEvent.inboxContentCreated()),
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_outlined, size: 44),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Couldn't load your conversations. Check your connection and try again.",
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => ctx
+                        .read<InboxBloc>()
+                        .add(const InboxEvent.inboxContentCreated()),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 

@@ -253,7 +253,6 @@ Future<void> init() async {
   // ** Feature - Chat **
   // BLoC
   sl.registerFactory(() => InboxBloc(
-        loginChatUseCase: sl(),
         getUserRoomsUseCase: sl(),
         storage: sl(),
       ));
