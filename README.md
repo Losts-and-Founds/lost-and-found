@@ -31,7 +31,7 @@ A user can:
 
 
 ## Installation
-You can find the apk of Lost And Found app [here](https://github.com/alecava41/LostAndFound-app/blob/main/submission/app-release.apk).
+You can find the apk of Lost And Found app [here]([https://github.com/alecava41/LostAndFound-app/blob/main/submission/app-release.apk](https://github.com/Losts-and-Founds/lost-and-found/releases/tag/v1.0.0)).
 
 
 
