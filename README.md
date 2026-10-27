@@ -8,7 +8,7 @@
 
 
 
-This project was developed as final project for Mobile Programming and Multimedia 2022/2023 held by Prof. Ombretta Gaggi in Univeristy of Padova.
+This project was developed as final project for Computer Science.
 ## Lost And Found
 Lost and Found is an application developed in Flutter for iOS and Android devices.
 
